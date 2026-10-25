@@ -1,0 +1,16 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: ch-lab
+    ports:
+      - "8123:8123" # HTTP (clickhouse-connect)
+      - "9000:9000" # native
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: lab # lab-only credential, never expose this port publicly
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      # server-side user_files dir: seed.parquet must be readable via file('seed.parquet')
+      - ./data:/var/lib/clickhouse/user_files
+    ulimits:
+      nofile: 262144

@@ -1,0 +1,17 @@
+[project]
+name = "clickhouse-analytics"
+version = "0.1.0"
+description = "ClickHouse case-study lab: 10 cases + query optimization (EXPLAIN, skip-indexes, projections)"
+requires-python = ">=3.11"
+dependencies = [
+    "clickhouse-connect>=0.7",
+    "pandas>=2.0",
+    "duckdb>=1.0",
+    "numpy>=1.26",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+markers = ["integration: needs the ClickHouse lab (docker compose up)"]

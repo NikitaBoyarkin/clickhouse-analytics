@@ -1,0 +1,16 @@
+# ---- python --------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- generated data ------------------------------------------------------
+# 630 MB, regenerated with `uv run python scripts/seed.py`
+data/
+
+# ---- os / editor ---------------------------------------------------------
+.DS_Store

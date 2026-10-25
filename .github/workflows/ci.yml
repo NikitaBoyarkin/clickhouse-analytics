@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Case fixtures are versioned
+        # Regression guard: cases/ was once swallowed by an unanchored `cases/`
+        # rule in the parent .gitignore, so a fresh clone had no fixtures at all.
+        run: |
+          test -f cases/expected.json
+          sql=$(ls cases/*.sql cases/10_optimization/*.sql | wc -l)
+          echo "sql files: $sql"
+          test "$sql" -ge 19
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Tests
+        # The 3 tests in tests/test_cases.py need a live ClickHouse lab
+        # (docker compose up) and skip themselves when port 8123 is closed.
+        run: uv run pytest -q
