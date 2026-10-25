@@ -29,81 +29,87 @@ WINDOW = 86400
 CHUNK = 250_000
 N_USERS = 1_000_000
 
-con = duckdb.connect()
-con.execute(f"CREATE VIEW events AS SELECT * FROM read_parquet('{SRC}')")
 
-levels = np.zeros(N_USERS + 1, dtype=np.uint8)  # index by user_id
+def main() -> None:
+    con = duckdb.connect()
+    con.execute(f"CREATE VIEW events AS SELECT * FROM read_parquet('{SRC}')")
 
-lo = 1
-while lo <= N_USERS:
-    hi = min(lo + CHUNK - 1, N_USERS)
-    df = con.execute(
-        f"""
-        SELECT user_id, epoch(event_ts) AS ts, event_type AS et,
-               row_number() OVER (PARTITION BY user_id
-                                  ORDER BY event_ts, event_type) AS rn
-        FROM events WHERE user_id BETWEEN {lo} AND {hi}
-        ORDER BY user_id, rn
-        """
-    ).fetchnumpy()
-    uid = df["user_id"].astype(np.int64)
-    ts = df["ts"].astype(np.int64)
-    et = df["et"].astype(np.int64)
-    rn = df["rn"].astype(np.int64)
+    levels = np.zeros(N_USERS + 1, dtype=np.uint8)  # index by user_id
 
-    nu = hi - lo + 1
-    L = int(rn.max())
-    loc = uid - lo
-    ts_mat = np.full((nu, L), np.iinfo(np.int64).min // 4, dtype=np.int64)
-    et_mat = np.full((nu, L), 255, dtype=np.int64)
-    ts_mat[loc, rn - 1] = ts
-    et_mat[loc, rn - 1] = et
+    lo = 1
+    while lo <= N_USERS:
+        hi = min(lo + CHUNK - 1, N_USERS)
+        df = con.execute(
+            f"""
+            SELECT user_id, epoch(event_ts) AS ts, event_type AS et,
+                   row_number() OVER (PARTITION BY user_id
+                                      ORDER BY event_ts, event_type) AS rn
+            FROM events WHERE user_id BETWEEN {lo} AND {hi}
+            ORDER BY user_id, rn
+            """
+        ).fetchnumpy()
+        uid = df["user_id"].astype(np.int64)
+        ts = df["ts"].astype(np.int64)
+        et = df["et"].astype(np.int64)
+        rn = df["rn"].astype(np.int64)
 
-    a0 = np.zeros(nu, dtype=np.int64)
-    first_event = np.zeros(nu, dtype=bool)
-    f1 = np.zeros(nu, dtype=np.int64)
-    has1 = np.zeros(nu, dtype=bool)
-    f2 = np.zeros(nu, dtype=np.int64)
-    has2 = np.zeros(nu, dtype=bool)
-    lvl = np.zeros(nu, dtype=np.uint8)
+        nu = hi - lo + 1
+        L = int(rn.max())
+        loc = uid - lo
+        ts_mat = np.full((nu, L), np.iinfo(np.int64).min // 4, dtype=np.int64)
+        et_mat = np.full((nu, L), 255, dtype=np.int64)
+        ts_mat[loc, rn - 1] = ts
+        et_mat[loc, rn - 1] = et
 
-    for r in range(L):
-        e = et_mat[:, r]
-        t = ts_mat[:, r]
-        valid = e != 255
-        m1 = valid & (e == 1)
-        a0[m1] = t[m1]
-        first_event[m1] = True
-        lvl[m1] = np.maximum(lvl[m1], 1)
+        a0 = np.zeros(nu, dtype=np.int64)
+        first_event = np.zeros(nu, dtype=bool)
+        f1 = np.zeros(nu, dtype=np.int64)
+        has1 = np.zeros(nu, dtype=bool)
+        f2 = np.zeros(nu, dtype=np.int64)
+        has2 = np.zeros(nu, dtype=bool)
+        lvl = np.zeros(nu, dtype=np.uint8)
 
-        m2 = valid & (e == 2) & first_event
-        tm = m2 & (t <= a0 + WINDOW)
-        f1[tm] = a0[tm]
-        has1[tm] = True
-        lvl[tm] = np.maximum(lvl[tm], 2)
+        for r in range(L):
+            e = et_mat[:, r]
+            t = ts_mat[:, r]
+            valid = e != 255
+            m1 = valid & (e == 1)
+            a0[m1] = t[m1]
+            first_event[m1] = True
+            lvl[m1] = np.maximum(lvl[m1], 1)
 
-        m3 = valid & (e == 3) & has1
-        tm = m3 & (t <= f1 + WINDOW)
-        f2[tm] = f1[tm]
-        has2[tm] = True
-        lvl[tm] = np.maximum(lvl[tm], 3)
+            m2 = valid & (e == 2) & first_event
+            tm = m2 & (t <= a0 + WINDOW)
+            f1[tm] = a0[tm]
+            has1[tm] = True
+            lvl[tm] = np.maximum(lvl[tm], 2)
 
-        m4 = valid & (e == 4) & has2
-        tm = m4 & (t <= f2 + WINDOW)
-        lvl[tm] = np.maximum(lvl[tm], 4)
+            m3 = valid & (e == 3) & has1
+            tm = m3 & (t <= f1 + WINDOW)
+            f2[tm] = f1[tm]
+            has2[tm] = True
+            lvl[tm] = np.maximum(lvl[tm], 3)
 
-    levels[lo : hi + 1] = lvl
-    lo = hi + 1
+            m4 = valid & (e == 4) & has2
+            tm = m4 & (t <= f2 + WINDOW)
+            lvl[tm] = np.maximum(lvl[tm], 4)
 
-dist = {int(k): int(v) for k, v in zip(*np.unique(levels[1:], return_counts=True))}
-out = {
-    "window": WINDOW,
-    "distribution": dist,
-    "as_rows": [[k, dist[k]] for k in sorted(dist)],
-}
-OUT.write_text(json.dumps(out, indent=2))
-print(json.dumps(out, indent=2))
+        levels[lo : hi + 1] = lvl
+        lo = hi + 1
 
-expected = json.loads((ROOT / "cases" / "expected.json").read_text())["01_funnel"]
-print("\nexpected:", expected)
-print("match:", out["as_rows"] == expected)
+    dist = {int(k): int(v) for k, v in zip(*np.unique(levels[1:], return_counts=True))}
+    out = {
+        "window": WINDOW,
+        "distribution": dist,
+        "as_rows": [[k, dist[k]] for k in sorted(dist)],
+    }
+    OUT.write_text(json.dumps(out, indent=2))
+    print(json.dumps(out, indent=2))
+
+    expected = json.loads((ROOT / "cases" / "expected.json").read_text())["01_funnel"]
+    print("\nexpected:", expected)
+    print("match:", out["as_rows"] == expected)
+
+
+if __name__ == "__main__":
+    main()

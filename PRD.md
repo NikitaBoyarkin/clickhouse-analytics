@@ -43,6 +43,24 @@ priority: P0
 Осталось (блокировано: нужна живая лаборатория, `docker compose up -d`):
 `cases/10_optimization/explain_slow.md`, `explain_fast.md`, `benchmark.md`.
 
+Порядок для следующей сессии (Docker Desktop должен быть не на паузе):
+
+```bash
+docker compose up -d                       # CH 24.8, HTTP :8123
+uv run python scripts/seed.py              # MergeTree events = 50 000 000
+uv run python scripts/run.py               # все кейсы сверяются с expected.json
+# EXPLAIN до:  EXPLAIN PLAN SELECT ... WHERE product_id = 42 AND event_type = 4
+# затем cases/10_optimization/fix.sql (ADD + MATERIALIZE PROJECTION p_product)
+# EXPLAIN после: тот же SELECT, план должен ссылаться на events.p_product
+# benchmark: clickhouse-benchmark, N>=100 прогонов, p50/p95 до и после
+uv run pytest -q
+```
+
+Заодно проверить расхождение кейса 06 (см. `cases.md`): после `--snapshot`
+`payer_pct` должен стать ~81.3%, а не 100.0 — если останется 100.0, значит
+`SETTINGS join_use_nulls = 1` в `cases/06_ltv_by_cohort.sql` не применяется, и
+чинить нужно сам запрос, а не снапшот.
+
 ## Проблема
 
 Интервью BI/DA middle в Авито/Яндекс/Т-банк: ~50% отбора — SQL, живущий на ClickHouse.
