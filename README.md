@@ -1,6 +1,6 @@
 # clickhouse-analytics
 
-> Ten ClickHouse case studies on a 50M-row dataset, plus a projection fix that made a slow query ~100× faster.
+> Ten ClickHouse case studies on a 50M-row dataset, plus a projection that turns a full-partition scan into a key range read.
 
 ## Navigation
 - 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
@@ -15,19 +15,19 @@ optimization case (`slow.sql` → `fast.sql`, EXPLAIN before/after, benchmark).
 
 ## Task
 Run ten cookbook cases on ClickHouse 24.x against a seeded 50,000,000-row dataset,
-and turn one slow query into a fast one — proving the win with EXPLAIN and a benchmark.
+and turn one slow query into a fast one — the speedup is measured by the test suite.
 
 ## Actions
-- Migrated 10 cases from the DuckDB cookbook to ClickHouse 24.x.
-- Built the optimization pair `slow.sql` → `fast.sql` with EXPLAIN before/after.
-- Benchmarked p50/p95 over 100 runs and asserted `speedup >= 10`.
+- Migrated the cookbook cases to ClickHouse 24.x; seven keep a DuckDB twin as a cross-engine check.
+- Built the optimization pair `slow.sql` → `fast.sql`, where the only lever is a schema-side projection.
+- Timed the same query text before and after the projection (median of 3 and 5 runs) and asserted `speedup >= 10` in `tests/test_cases.py`.
 - Applied the schema-side fix `ADD PROJECTION … ORDER BY product_id`.
 
 ## Result
 - Seeded dataset: the test asserts 50,000,000 rows.
 - Funnel case rows: `[1,282176],[2,696745],[3,20730],[4,349]` (cases/expected.json).
 - Sessionization: `[49711224,1000000,1.01,0.09,0.0]`.
-- Optimized query: `speedup >= 10` (≥×10 target); the projection fix delivered a ~100× win.
+- Optimized query: `speedup >= 10` asserted by the test suite. The win is schema-side — the query text is identical before and after.
 
 **Status:** PRD approved, in development — see [PRD.md](PRD.md).
 

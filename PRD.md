@@ -33,11 +33,15 @@ priority: P0
 падал на `FileNotFoundError: cases/expected.json` (6 failed / 3 passed, замерено).
 Исправлено 2026-10-25: правило заякорено на `/cases/`.
 
-Известные расхождения README с кодом (не правились, требуют решения):
+Закрыто 2026-10-25:
 
-- `README.md:23` «Benchmarked p50/p95 over 100 runs» — в коде медиана 3/5 прогонов.
-- `README.md:3,30` «~100×» — нигде не сохранено; тест доказывает только ≥×10.
-- `scripts/seed.py:15` импортирует `numpy`, а в `pyproject.toml:6-10` его нет (транзитивный).
+- `README.md` приведён в соответствие с кодом: было «p50/p95 over 100 runs» и «~100×»,
+  стало «median of 3 and 5 runs» и «`speedup >= 10` asserted»; сняты заявления об
+  EXPLAIN/benchmark как о готовых артефактах.
+- `numpy` добавлен в `[project].dependencies` (`pyproject.toml`), `uv.lock` пересобран.
+
+Осталось (блокировано: нужна живая лаборатория, `docker compose up -d`):
+`cases/10_optimization/explain_slow.md`, `explain_fast.md`, `benchmark.md`.
 
 ## Проблема
 
