@@ -4,8 +4,7 @@ Reads the full-table aggregates written by full_aggregates.py / funnel_exact.py
 and re-queries DuckDB only for the per-product revenue vector.
 
 Run:
-    /Users/nikitaboarkin/Desktop/00 ide/00 portfolio/.eda-tools/.venv/bin/python \
-        reports/eda/scripts/plots.py
+    uv run python reports/eda/scripts/plots.py
 """
 
 from __future__ import annotations
@@ -46,8 +45,8 @@ def main() -> None:
     # ---------------------------------------------------------------------------
     con = duckdb.connect()
     sample = con.execute(
-        "SELECT amount, event_type FROM read_parquet("
-        "'/private/var/folders/pg/3tkd56hn1h56w17r97f6bfqr0000gn/T/opencode/seed_sample500k.parquet')"
+        f"""SELECT amount, event_type FROM read_parquet('{ROOT / "data" / "seed.parquet"}')
+            USING SAMPLE 500000 ROWS (reservoir, 42)"""
     ).fetchnumpy()
     amt_all = sample["amount"]
     amt_buy = amt_all[sample["event_type"] == 4]

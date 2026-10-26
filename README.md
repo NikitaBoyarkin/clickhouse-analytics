@@ -5,17 +5,18 @@
 ## Navigation
 - 🌐 [Portfolio site](https://nikitaboyarkin.github.io)
 - 🏦 [Flagship case: Volta neobank](https://github.com/NikitaBoyarkin/volta-banking)
-- 🧪 Related: [gmv-drop-rca](../gmv-drop-rca/) · [sql-analytics-case-study](https://github.com/NikitaBoyarkin/sql-analytics-case-study) · [interview-gym](../interview-gym/)
+- 🧪 Related: [GMV drop RCA](https://nikitaboyarkin.github.io/projects/gmv-drop-rca/) · [sql-analytics-case-study](https://github.com/NikitaBoyarkin/sql-analytics-case-study)
 
 **On this page:** [Situation](#situation) · [Task](#task) · [Actions](#actions) · [Result](#result) · [Metric decomposition](#metric-decomposition) · [Quick start](#quick-start)
 
 ## Situation
-ClickHouse case-study lab: 10 cases migrated from the DuckDB cookbook + one query
+ClickHouse case-study lab: nine cookbook cases migrated from DuckDB + one query
 optimization case (`slow.sql` → `fast.sql`, EXPLAIN before/after, benchmark).
 
 ## Task
-Run ten cookbook cases on ClickHouse 24.x against a seeded 50,000,000-row dataset,
-and turn one slow query into a fast one — the speedup is measured by the test suite.
+Run the nine cookbook cases plus the optimization case on ClickHouse 24.x against a
+seeded 50,000,000-row dataset, and turn one slow query into a fast one — the speedup
+is measured by the test suite.
 
 ## Actions
 - Migrated the cookbook cases to ClickHouse 24.x; seven keep a DuckDB twin as a cross-engine check.
@@ -60,7 +61,15 @@ Full analysis: [`reports/eda/eda-clickhouse-2026-10-13.md`](reports/eda/eda-clic
 ## Quick start
 
 ```bash
-docker compose up -d   # single-node ClickHouse
-uv sync
-uv run python scripts/run.py
+docker compose up -d            # single-node ClickHouse
+uv sync --all-groups            # pytest, ruff and matplotlib live in the dev group
+uv run python scripts/seed.py   # loads data/seed.parquet into ClickHouse
+uv run python scripts/run.py    # nine cases vs expected.json + the DuckDB twins
+uv run pytest -m integration    # snapshots, cross-engine check, >=10x speedup
 ```
+
+`data/` is gitignored (the parquet is 601 MB), so `scripts/seed.py` generates it when
+absent — with a different generator than the pinned artifact, see `seed.py`'s notes.
+A plain `uv run pytest` runs the static suite only (56 tests, no server needed); the
+three integration tests skip themselves when port 8123 is closed, which is why CI
+cannot verify the snapshots or the speedup.

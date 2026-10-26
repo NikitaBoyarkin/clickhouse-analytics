@@ -48,7 +48,10 @@ SETTINGS max_insert_threads = 4;
 def gen_parquet() -> None:
     if PARQUET.exists():
         print(
-            f"{PARQUET} exists ({PARQUET.stat().st_size / 1e6:.0f} MB), skip generation"
+            f"{PARQUET} exists ({PARQUET.stat().st_size / 1e6:.0f} MB), skip generation.\n"
+            "  This reuses the pinned artifact from 2026-09-28. The bursty generator below\n"
+            "  landed on 2026-10-20, so deleting the file regenerates DIFFERENT data and\n"
+            "  every number in README.md, cases/expected.json and reports/eda/ changes."
         )
         return
     rng = np.random.default_rng(42)

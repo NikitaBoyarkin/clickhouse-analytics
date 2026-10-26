@@ -67,7 +67,11 @@ def _jsonable(rows) -> list[list]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--snapshot", action="store_true", help="overwrite expected.json")
-    ap.add_argument("--duck-only", action="store_true", help="skip ClickHouse entirely")
+    ap.add_argument(
+        "--duck-only",
+        action="store_true",
+        help="no server: check the DuckDB twins against expected.json",
+    )
     args = ap.parse_args()
 
     expected = (
@@ -104,7 +108,16 @@ def main() -> None:
         if duck_ref.exists():
             duck_rows = _norm(duck.execute(duck_ref.read_text()).fetchall())
             if ch_rows is None:
-                duck_res = f"{len(duck_rows)} rows"
+                # No server means the DuckDB twin is the only evidence on offer, so it
+                # takes over the snapshot check — otherwise `--duck-only` reports row
+                # counts and proves nothing about the committed expected.json.
+                if name not in expected:
+                    duck_res = f"{len(duck_rows)} rows (no snapshot)"
+                elif _close(duck_rows, _norm([tuple(r) for r in expected[name]])):
+                    duck_res = "ok"
+                else:
+                    duck_res = "DIFF"
+                    failures.append(f"{name}: duck vs snapshot mismatch")
             else:
                 duck_res = "ok" if _close(ch_rows, duck_rows) else "DIFF"
                 if duck_res == "DIFF":

@@ -11,7 +11,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+# matplotlib is only needed by reports/eda/scripts/plots.py, but it rides in the dev
+# group so `uv sync --all-groups` makes the EDA reproducible without a second sync.
+dev = ["pytest>=8", "ruff>=0.6", "matplotlib>=3.8"]
 
 [tool.pytest.ini_options]
 markers = ["integration: needs the ClickHouse lab (docker compose up)"]
